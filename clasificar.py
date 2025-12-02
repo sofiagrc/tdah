@@ -29,8 +29,13 @@ from pathlib import Path
 
 path_eda_x = "C:/Users/pprru/Desktop/salidas_eda_nueva/features_eda_all_users.csv"
 path_eda_y = "C:/Users/pprru/Desktop/salidas_eda_nueva/labels_eda_all_users.csv"
+
 path_pow_x = "C:/Users/pprru/Desktop/salidas_eda_nueva/features_robots_all_users.csv"
 path_pow_y = "C:/Users/pprru/Desktop/salidas_eda_nueva/labels_robots_all_users.csv"
+
+path_comb_x = "C:/Users/pprru/Desktop/Bueno/salidas/combinada_x.csv"
+path_comb_y ="C:/Users/pprru/Desktop/Bueno/salidas/combinada_y.csv"
+
 path_demog = "C:/Users/pprru/Desktop/Balladeer/users_demographics.json"
 
 def read_archivo(path: str):
@@ -54,6 +59,14 @@ def obtener_usuarios_eda(path: str = "C:/Users/pprru/Desktop/salidas_eda_nueva/t
     df.columns = [c.strip() for c in df.columns]
     users = df.pop("username")
     return users
+
+def obtener_usuarios_comb(path: str = "C:/Users/pprru/Desktop/Bueno/salidas/combinada.csv"):
+    print(f"Leyendo archivo: {path}")
+    df = pd.read_csv(path)
+    df.columns = [c.strip() for c in df.columns]
+    users = df.pop("user")
+    return users
+
 
 
 def normalizar_datos(X_train, X_test):
@@ -93,6 +106,11 @@ def clasificar(tipo:str):
         groups = obtener_usuarios_eda()
         X = read_archivo(path_eda_x)
         y = read_archivo(path_eda_y)
+    elif (tipo=="comb"):
+        groups = obtener_usuarios_comb()
+        X = read_archivo(path_comb_x)
+        y = read_archivo(path_comb_y)
+
     
     dicc_metricas_clasificador={}
     dicc_metricas_fold={}
@@ -130,7 +148,7 @@ def clasificar(tipo:str):
                 num_fold+=1
                 dicc_metricas,tn,fp,fn,tp = calcular_metricas(X_test, y_test, y_pred,name_clf,clf,num_fold)  # guarda metricas por tipo de fold 
                 #print(dicc_metricas)    # esto tiene las metricas de un fold
-
+                print(tn,fp,fn,tp)
                 # ================================================================================
                 # PARA CADA DATO SE CREA UNA FILA EN LA TABLA FINAL
 
@@ -284,29 +302,56 @@ def aplicar_folds (X: pd.DataFrame , y:pd.DataFrame , clf, val, name_val,groups)
    
 #  CALCULO DE METRICAS -------------------------------------------------
 
-def calcular_metricas(X_test, y_test, y_pred, name_clf,clf,fold):
 
+
+import numpy as np
+
+def calcular_metricas(X_test, y_test, y_pred, name_clf, clf, fold):
     dicc_metricas={}
+
     accuracy = accuracy_score(y_test, y_pred)
     p = precision_score(y_test, y_pred, average='binary')
     r = recall_score(y_test, y_pred, average='binary')
-    matrix= confusion_matrix(y_test, y_pred, normalize='all')
-    tn,fp,fn,tp = confusion_matrix(y_test, y_pred).ravel().tolist()
-    specificity = tn / (tn + fp)
-    precision, recall, fscore, support = precision_recall_fscore_support(y_test, y_pred, average='binary')
-    auroc=0
-    if(not name_clf=="KNN"):
-        auroc= roc_auc_score(y_test, clf.decision_function(X_test))
 
-    dicc_metricas[fold] = {"accuracy":accuracy, 
-                           "precision":precision,
-                           "recall":recall,
-                            "specificity": specificity,
-                            "fscore": fscore,
-                            "auroc":auroc
-                            }
-    
-    return dicc_metricas,tn,fp,fn,tp
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel().tolist()
+
+    # Evitar división por cero en specificity SSINO DA ERROR PARA COMBINADA
+    if (tn + fp) > 0:
+        specificity = tn / (tn + fp)
+    else:
+        specificity = np.nan  # o 0.0 si prefieres
+
+    precision, recall, fscore, support = precision_recall_fscore_support(
+        y_test, y_pred, average='binary'
+    )
+
+    # CONTROLA QUE NO DE ERROR PARA KNN
+    auroc = np.nan
+    clases_test = np.unique(y_test)
+    if len(clases_test) > 1:
+        try:
+            if hasattr(clf, "decision_function"):
+                scores = clf.decision_function(X_test)
+            elif hasattr(clf, "predict_proba"):
+                scores = clf.predict_proba(X_test)[:, 1]
+            else:
+                scores = None
+
+            if scores is not None:
+                auroc = roc_auc_score(y_test, scores)
+        except ValueError:
+            auroc = np.nan
+
+    dicc_metricas[fold] = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "fscore": fscore,
+        "auroc": auroc,
+    }
+
+    return dicc_metricas, tn, fp, fn, tp
 
 
 
@@ -337,6 +382,6 @@ def estudio_demografico():
 
 
 if __name__ == "__main__":
-   estudio_demografico()
-   clasificar("eda")
+   #estudio_demografico()
+   clasificar("comb")
 

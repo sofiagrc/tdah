@@ -463,7 +463,6 @@ def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
 
 
     tabla_final = todas_filas.copy()
-    print("hola")
     out_path = salida_dir / "tabla_eda_con_diagnostico.csv"
     tabla_final.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla EDA + diagnóstico guardada en: {out_path}")
