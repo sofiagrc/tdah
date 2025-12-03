@@ -484,7 +484,6 @@ def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
 
     return X, y, X_out_path, y_out_path, out_path
 
-#def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR,) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
 def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR):
     salida_dir.mkdir(parents=True, exist_ok=True)
 

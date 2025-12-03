@@ -3,8 +3,8 @@ from pathlib import Path
 
 
 path_eda = "C:/Users/pprru/Desktop/salidas_eda_nueva/tabla_eda_con_diagnostico.csv"
-
 path_pow = "C:/Users/pprru/Desktop/salidas_eda_nueva/bandpower_robots_all_users.csv"
+
 
 def read_archivo(path: str):
     print(f"Leyendo archivo: {path}")
@@ -46,7 +46,7 @@ def base_datos_completa():
 
     comunes = validar_users()
 
-    # primero elimino las que no sean comunes
+    # elimino las que no sean comunes
     archivo_pow_filtrado = archivo_pow[archivo_pow["user"].isin(comunes)].copy()  # dataframe de pow con los usuarios comunes
     archivo_eda_filtrado = archivo_eda[archivo_eda["username"].isin(comunes)].copy()
 
@@ -69,19 +69,19 @@ def limpiar_tabla():
     df = base_datos_completa()
     df.drop(['EDA_diagnosed'], axis='columns', inplace=True)
 
-    out_path = Path(r"C:/Users/pprru/Desktop/Bueno/salidas/combinada.csv")
+    out_path = Path(r"C:/Users/pprru/Desktop/salidas_eda_nueva/combinada.csv")
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla final combinada guardada en: {out_path}")
 
     y = df[["diagnosed"]]
-    y_out_path = Path(r"C:/Users/pprru/Desktop/Bueno/salidas/combinada_y.csv")
+    y_out_path = Path(r"C:/Users/pprru/Desktop/salidas_eda_nueva/combinada_y.csv")
     y.to_csv(y_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla Y guardada en: {y_out_path}")
 
     columnas_a_quitar = [c for c in ["diagnosed", "user", "username", "epoch"] if c in df.columns]
 
     X = df.drop(columns=columnas_a_quitar)
-    X_out_path =  Path(r"C:/Users/pprru/Desktop/Bueno/salidas/combinada_x.csv")
+    X_out_path =  Path(r"C:/Users/pprru/Desktop/salidas_eda_nueva/combinada_x.csv")
     X.to_csv(X_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla X guardada en: {X_out_path}")
 

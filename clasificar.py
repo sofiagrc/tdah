@@ -7,6 +7,7 @@ from sklearn import svm
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.datasets import make_classification
@@ -27,46 +28,58 @@ from pathlib import Path
 
 # LEYENDO ARCHIVOS --------------------------------------------------------------
 
-path_eda_x = "C:/Users/pprru/Desktop/salidas_eda_nueva/features_eda_all_users.csv"
-path_eda_y = "C:/Users/pprru/Desktop/salidas_eda_nueva/labels_eda_all_users.csv"
-
-path_pow_x = "C:/Users/pprru/Desktop/salidas_eda_nueva/features_robots_all_users.csv"
-path_pow_y = "C:/Users/pprru/Desktop/salidas_eda_nueva/labels_robots_all_users.csv"
-
-path_comb_x = "C:/Users/pprru/Desktop/Bueno/salidas/combinada_x.csv"
-path_comb_y ="C:/Users/pprru/Desktop/Bueno/salidas/combinada_y.csv"
+DATA_PATH = "C:/Users/pprru/Desktop/salidas_eda_nueva"
 
 path_demog = "C:/Users/pprru/Desktop/Balladeer/users_demographics.json"
 
+OUTPUT_PATH = "C:/Users/pprru/Desktop/Bueno/salidas"
+
+
 def read_archivo(path: str):
+
     print(f"Leyendo archivo: {path}")
+    print(path)
     df = pd.read_csv(path)
     df.columns = [c.strip() for c in df.columns]
     return df
 
 
+def _get_data(tipo:str):
+    if (tipo=="pow"):
+        path_x = DATA_PATH+"/features_robots_all_users.csv"
+        path_y = DATA_PATH+"/labels_robots_all_users.csv"
+        groups = obtener_usuarios(DATA_PATH+"/bandpower_robots_all_users.csv")
 
-def obtener_usuarios_pow(path: str = "C:/Users/pprru/Desktop/salidas_eda_nueva/bandpower_robots_all_users.csv"):
+    elif (tipo=="eda"):
+        path_x = DATA_PATH+"/features_eda_all_users.csv"
+        path_y = DATA_PATH+"/labels_eda_all_users.csv"
+        groups = obtener_usuarios(DATA_PATH+"/tabla_eda_con_diagnostico.csv")
+        print("C:/Users/pprru/Desktop/salidas_eda_nueva/tabla_eda_con_diagnostico.csv")
+
+    elif (tipo=="comb"):
+        path_x = DATA_PATH+"/combinada_x.csv"
+        path_y = DATA_PATH+"/combinada_y.csv"
+        groups = obtener_usuarios(DATA_PATH+"/combinada.csv")
+
+    X = read_archivo(path_x)
+    y = read_archivo(path_y)
+
+    
+    return X,y,groups
+
+
+
+def obtener_usuarios(path: str):
     print(f"Leyendo archivo: {path}")
+    print(path)
     df = pd.read_csv(path)
     df.columns = [c.strip() for c in df.columns]
+    if ("username" in df):
+        df = df.rename(columns={"username": "user"})   # en cada base de datos el usuario se llama de una forma, se pone user para evitar errores
+
+
     users = df.pop("user")
     return users
-
-def obtener_usuarios_eda(path: str = "C:/Users/pprru/Desktop/salidas_eda_nueva/tabla_eda_con_diagnostico.csv"):
-    print(f"Leyendo archivo: {path}")
-    df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
-    users = df.pop("username")
-    return users
-
-def obtener_usuarios_comb(path: str = "C:/Users/pprru/Desktop/Bueno/salidas/combinada.csv"):
-    print(f"Leyendo archivo: {path}")
-    df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
-    users = df.pop("user")
-    return users
-
 
 
 def normalizar_datos(X_train, X_test):
@@ -85,6 +98,7 @@ classifier = {
     "SVC": svm.SVC(),
     "AdaBoost": AdaBoostClassifier(n_estimators=100, random_state=42),
     "KNN": KNeighborsClassifier(n_neighbors=3),
+
 }
 
 validation = {
@@ -95,23 +109,120 @@ validation = {
     }
 
 
+def clasificador_unico(tipo:str, name_clf:str):
 
-def clasificar(tipo:str):
-
-    if (tipo=="pow"):
-        groups = obtener_usuarios_pow()
-        X = read_archivo(path_pow_x)
-        y = read_archivo(path_pow_y)
-    elif (tipo=="eda"):
-        groups = obtener_usuarios_eda()
-        X = read_archivo(path_eda_x)
-        y = read_archivo(path_eda_y)
-    elif (tipo=="comb"):
-        groups = obtener_usuarios_comb()
-        X = read_archivo(path_comb_x)
-        y = read_archivo(path_comb_y)
-
+    if (name_clf in classifier.keys()):
+        clf = classifier[name_clf]
     
+    else:
+        print("Clasificador no válido")
+
+    X,y,groups= _get_data(tipo)
+
+    dicc_metricas_clasificador={}
+    dicc_metricas_fold={}
+    encabezado = ["Clasificador","Tipo_Fold","Num_Fold","Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"] 
+    df = pd.DataFrame(columns=encabezado)
+    datos=[]
+
+    print("\n")
+    print("=============================================================")
+    print(f"Aplicando clasificador: {name_clf}")
+    print("=============================================================")
+    print("\n") 
+
+    for name_val, val in validation.items():  # recorre TIPOS DE FOLDS
+        print("*************************************************************")
+        print(f" Usando validacion: {name_val}")
+        conjunto_X_train, conjunto_X_test, conjunto_y_train, conjunto_y_test=aplicar_folds(X,y,clf,val,name_val,groups)  # solo es un fold
+        
+        lista =[]
+        num_fold=0
+        for i in range (len(conjunto_X_train)):  # recorre FOLDS
+            print(f"  Fold: {num_fold}")
+
+            X_train=conjunto_X_train[i]
+            X_test=conjunto_X_test[i]
+            y_train=conjunto_y_train[i]
+            y_test=conjunto_y_test[i]
+
+            clf.fit(X_train, y_train)
+            y_pred = clf.predict(X_test)
+
+            print(f"Calculando metricas...")
+            num_fold+=1
+            dicc_metricas,tn,fp,fn,tp = calcular_metricas(X_test, y_test, y_pred,name_clf,clf,num_fold)  # guarda metricas por tipo de fold 
+            #print(dicc_metricas)    # esto tiene las metricas de un fold
+            print(tn,fp,fn,tp)
+            # ================================================================================
+            # PARA CADA DATO SE CREA UNA FILA EN LA TABLA FINAL
+
+            fila = {
+                "Clasificador": name_clf,
+                "Tipo_Fold": name_val,
+                "Num_Fold": num_fold,
+                "Accuracy": dicc_metricas[num_fold]["accuracy"],
+                "Precision": dicc_metricas[num_fold]["precision"],
+                "Recall": dicc_metricas[num_fold]["recall"],
+                "Specificity": dicc_metricas[num_fold]["specificity"],
+                "Fscore": dicc_metricas[num_fold]["fscore"],
+                "AUROC": dicc_metricas[num_fold]["auroc"],
+                "tn": tn,
+                "fp": fp,
+                "fn": fn,
+                "tp": tp
+            }
+
+            datos.append(fila)
+
+            # ================================================================================ 
+
+
+
+            lista.append(dicc_metricas) # guarda las metricas de todos los folds
+        dicc_metricas_fold[name_clf+"_"+name_val]=lista
+
+
+    print("\n")
+
+    #print(dicc_metricas_fold)  # en este punto la lista tiene las metricas de todos los folds de un tipo de FOLD
+    print("\n")
+    
+            
+    print("*************************************************************")
+
+    df = pd.DataFrame(datos, columns=encabezado)
+
+    nombre_archivo = "/tabla_metricas_"+name_clf+"_"+tipo+".csv"
+    out_path = Path(OUTPUT_PATH+nombre_archivo)
+    df.to_csv(out_path, index=False, encoding="utf-8")
+    print(f"[OK] Tabla métricas guardada en: {out_path}")
+
+
+
+    # en datos esta ya  la tabla completa
+    # hay que agrupar por clasificador y tipo de fold y sacar la media de cada uuna de las metricas
+    media = df.groupby(["Clasificador","Tipo_Fold"])[["Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"]].mean().reset_index()   # reset_index es para que vuelva a poner lo de clasificador y tipo_fold como columnas
+    #print(media)
+    nombre_archivo_media = "/tabla_metricas_media_"+name_clf+"_"+tipo+".csv"
+    out_path2 = Path(OUTPUT_PATH+nombre_archivo_media)
+    media.to_csv(out_path2, index=False, encoding="utf-8")
+    print(f"[OK] Tabla métricas guardada en: {out_path2}")
+
+
+
+
+
+
+
+
+
+
+
+def clasificar_todos(tipo:str):
+
+    X,y,groups= _get_data(tipo)
+
     dicc_metricas_clasificador={}
     dicc_metricas_fold={}
 
@@ -184,8 +295,6 @@ def clasificar(tipo:str):
         print("\n")
         
                 
-
-                
         print("*************************************************************")
 
         # tengo que hacer un diccionario con las medias de las metricas por distinto tipo de fold
@@ -195,7 +304,9 @@ def clasificar(tipo:str):
     # CREA DATAFRAME Y LO GUARDA EN CSV
 
     df = pd.DataFrame(datos, columns=encabezado)
-    out_path = Path(r"C:\Users\pprru\Desktop\Bueno\salidas\tabla_metricas.csv")
+
+    nombre_archivo = "/tabla_metricas_"+tipo+".csv"
+    out_path = Path(OUTPUT_PATH+nombre_archivo)
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path}")
 
@@ -205,8 +316,8 @@ def clasificar(tipo:str):
     # hay que agrupar por clasificador y tipo de fold y sacar la media de cada uuna de las metricas
     media = df.groupby(["Clasificador","Tipo_Fold"])[["Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"]].mean().reset_index()   # reset_index es para que vuelva a poner lo de clasificador y tipo_fold como columnas
     #print(media)
-    
-    out_path2 = Path(r"C:\Users\pprru\Desktop\Bueno\salidas\tabla_metricas_media.csv")
+    nombre_archivo_media = "/tabla_metricas_media_"+tipo+".csv"
+    out_path2 = Path(OUTPUT_PATH+nombre_archivo_media)
     media.to_csv(out_path2, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path2}")
 
@@ -303,9 +414,6 @@ def aplicar_folds (X: pd.DataFrame , y:pd.DataFrame , clf, val, name_val,groups)
 #  CALCULO DE METRICAS -------------------------------------------------
 
 
-
-import numpy as np
-
 def calcular_metricas(X_test, y_test, y_pred, name_clf, clf, fold):
     dicc_metricas={}
 
@@ -381,7 +489,23 @@ def estudio_demografico():
 
 
 
+# añadir funcion get_Data  --
+# cambiar Paths  --
+# cambiar nombre archivos salida metricas --
+# añadir funcion por tipo y clasificador
+# añadir otro clasificador
+
 if __name__ == "__main__":
    #estudio_demografico()
-   clasificar("comb")
+
+    #clasificador_unico("comb","KNN")
+    clasificador_unico("eda","AdaBoost")
+    clasificador_unico("pow","SVC")
+
+
+    #clasificar_todos("comb")
+    #clasificar_todos("eda")
+    #clasificar_todos("pow")
+
+
 
