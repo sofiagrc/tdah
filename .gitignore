@@ -14,3 +14,6 @@ salidas/
 *.log
 *.tmp
 
+datos/
+*.log
+*.tmp

@@ -19,29 +19,8 @@ from sklearn.impute import SimpleImputer
 BASE_DIR   = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_data")                 # raíz UB####
 EDA_CSV    = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_embraceplus_data.csv") # EDA/embrace
 DEMOG_JSON = Path(r"C:\Users\pprru\Desktop\Balladeer\users_demographics.json")
-OUT_DIR    = Path(r"C:\Users\pprru\Desktop\salidas2")                                 # salidas
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-#%% ----------------------------------------------------------------------------------------
-# Rutas básicas de los archivos del dataset
-
-from pathlib import Path
-from typing import List, Tuple
-
-import re
-import pandas as pd
-import numpy as np
-import mne
-
-from mne_features.univariate import compute_pow_freq_bands
-from limpieza import get_eligible_users  # usa tu módulo existente
-
-BASE_DIR   = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_data")                 # raíz UB####
-EDA_CSV    = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_embraceplus_data.csv") # EDA/embrace
-DEMOG_JSON = Path(r"C:\Users\pprru\Desktop\Balladeer\users_demographics.json")
-OUT_DIR    = Path(r"C:\Users\pprru\Desktop\salidas2")                                 # salidas
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+OUT_DIR    = Path(r"C:\Users\pprru\Desktop\Bueno\datos")                                     # salidas
+                           
 
 
 
@@ -106,7 +85,7 @@ def abrir_archivo_eda(path: Path = EDA_CSV, contexto: str = "Robots") -> pd.Data
 
     # Guardar tabla en OUT_DIR
     path_tabla = OUT_DIR / "tabla_eda1.csv"
-    df_sel.to_csv(path_tabla, index=False, encoding="utf-8")
+    #df_sel.to_csv(path_tabla, index=False, encoding="utf-8")
     #print(f"[OK] Tabla EDA guardada en: {path_tabla}")
 
     return df_sel
@@ -223,7 +202,7 @@ def medidas_validas() -> pd.DataFrame:
 
 
     path_tabla2 = OUT_DIR / "tabla_eda2.csv"
-    tabla_mod.to_csv(path_tabla2, index=False, encoding="utf-8")
+    #tabla_mod.to_csv(path_tabla2, index=False, encoding="utf-8")
     #print(f"[OK] Tabla EDA guardada en: {path_tabla2}")
 
     return tabla_mod
@@ -294,7 +273,7 @@ def invalidar_actividades_nulos(df: pd.DataFrame, max_nulos_por_actividad: int =
 
     
     path_tabla3 = OUT_DIR / "tabla_eda3.csv"
-    df_mod.to_csv(path_tabla3, index=False, encoding="utf-8")
+    #df_mod.to_csv(path_tabla3, index=False, encoding="utf-8")
     #print(f"[OK] Tabla EDA guardada en: {path_tabla3}")
 
     return df_mod
@@ -317,7 +296,7 @@ def filtrar_actividades(df3: pd.DataFrame)-> pd.DataFrame:
             tabla_filtrada.drop(columns=cols_act, inplace=True)   # se eliminan todas las columnas de la actividad
 
     path_tabla4 = OUT_DIR / "tabla_eda4.csv"
-    tabla_filtrada.to_csv(path_tabla4, index=False, encoding="utf-8")
+    #tabla_filtrada.to_csv(path_tabla4, index=False, encoding="utf-8")
     print(f"[OK] Tabla EDA guardada en: {path_tabla4}")
 
     return tabla_filtrada
@@ -336,7 +315,7 @@ def borrar_filas_vacias(df4:pd.DataFrame )->pd.DataFrame:
     df4_copia=df4_copia[~filas_vacias].copy()
 
     path_tabla5 = OUT_DIR / "tabla_eda5.csv"
-    df4_copia.to_csv(path_tabla5, index=False, encoding="utf-8")
+    #df4_copia.to_csv(path_tabla5, index=False, encoding="utf-8")
     print(f"[OK] Tabla EDA guardada en: {path_tabla5}")
 
     return df4_copia
@@ -349,7 +328,7 @@ def missing_values(tabla:pd.DataFrame)-> pd.DataFrame:    # hay que arreglarlo, 
 
 
     path_tabla6= OUT_DIR / "tabla_eda6.csv"
-    tabla.to_csv(path_tabla6, index=False, encoding="utf-8")
+    #tabla.to_csv(path_tabla6, index=False, encoding="utf-8")
     print(f"[OK] Tabla EDA guardada en: {path_tabla6}")
     return tabla
 
@@ -485,7 +464,7 @@ def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
     return X, y, X_out_path, y_out_path, out_path
 
 def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR):
-    salida_dir.mkdir(parents=True, exist_ok=True)
+
 
     print("\n[STEP 1] medidas_validas()")
     df2 = medidas_validas()
@@ -529,6 +508,5 @@ def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_cs
 # Main
 
 if __name__ == "__main__":
-    salida_custom = Path(r"C:\Users\pprru\Desktop\salidas_eda_nueva")
-    X, y, X_path, y_path, full_path = compute_eda(salida_dir=salida_custom)
+    X, y, X_path, y_path, full_path = compute_eda()
     

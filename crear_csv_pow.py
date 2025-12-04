@@ -18,8 +18,8 @@ from limpieza import get_eligible_users  # usa tu módulo existente
 BASE_DIR   = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_data")                 # raíz UB####
 EDA_CSV    = Path(r"C:\Users\pprru\Desktop\Balladeer\balladeer_embraceplus_data.csv") # EDA/embrace
 DEMOG_JSON = Path(r"C:\Users\pprru\Desktop\Balladeer\users_demographics.json")
-OUT_DIR    = Path(r"C:\Users\pprru\Desktop\salidas2")                                 # salidas
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+OUT_DIR    = Path(r"C:\Users\pprru\Desktop\Bueno\datos")                               # salidas
+
 
 PLOT = False  # pon True si quieres ver raw.plot(...) y raw.plot_sensors(...)
 
@@ -361,7 +361,7 @@ def guardar_tablas(tabla_final: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
 
 
 #%% -------------------------------------------------------------------------------------------------------------
-def compute_pow(base_dir: Path = BASE_DIR,demog_json: Path = DEMOG_JSON,eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR,) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
+def compute_pow(base_dir: Path = BASE_DIR,demog_json: Path = DEMOG_JSON,eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR ) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
     # recibe las rutas de los archivos y una ruta de salida
     # devuelve X, y y la ruta de donde se encuentran las tres tablas creadas
     tabla_caracteristicas = crear_tabla_caracteristicas(base_dir, demog_json, eda_csv)
@@ -371,8 +371,8 @@ def compute_pow(base_dir: Path = BASE_DIR,demog_json: Path = DEMOG_JSON,eda_csv:
 
 
 if __name__ == "__main__":
-    salida_custom = Path(r"C:\Users\pprru\Desktop\salidas_eda_nueva")
-    X, y, X_path, y_path, full_path = compute_pow(salida_dir=salida_custom)
+    
+    X, y, X_path, y_path, full_path = compute_pow()
     #datos_procesados_pow()
     #tabla= crear_tabla_caracteristicas(BASE_DIR, DEMOG_JSON, EDA_CSV)
    
