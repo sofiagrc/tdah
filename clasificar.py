@@ -110,7 +110,8 @@ validation = {
     }
 
 
-def clasificador_unico(tipo:str, name_clf:str):
+
+def clasificador_unico(tipo:str, name_clf:str, tipo_fold:str=""):
 
     if (name_clf in classifier.keys()):
         clf = classifier[name_clf]
@@ -120,8 +121,7 @@ def clasificador_unico(tipo:str, name_clf:str):
 
     X,y,groups= _get_data(tipo)
 
-    dicc_metricas_clasificador={}
-    dicc_metricas_fold={}
+    
     encabezado = ["Clasificador","Tipo_Fold","Num_Fold","Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"] 
     df = pd.DataFrame(columns=encabezado)
     datos=[]
@@ -131,86 +131,81 @@ def clasificador_unico(tipo:str, name_clf:str):
     print(f"Aplicando clasificador: {name_clf}")
     print("=============================================================")
     print("\n") 
+    if (tipo_fold==""):
+        for name_val, val in validation.items():  # recorre TIPOS DE FOLDS
+                
+                datos_por_tipo_fold = clasificador_unico_folds(X,y,clf,name_clf, val, name_val,groups)
 
-    for name_val, val in validation.items():  # recorre TIPOS DE FOLDS
-        print("*************************************************************")
-        print(f" Usando validacion: {name_val}")
-        conjunto_X_train, conjunto_X_test, conjunto_y_train, conjunto_y_test=aplicar_folds(X,y,clf,val,name_val,groups)  # solo es un fold
+                for el in datos_por_tipo_fold:
+                    datos.append(el)
+    else:
+        if tipo_fold in validation.keys():
+            name_val = tipo_fold
+            val = validation[name_val]
+            datos_por_tipo_fold = clasificador_unico_folds(X,y,clf,name_clf, val, name_val,groups)
+            for el in datos_por_tipo_fold:
+                datos.append(el)
         
-        lista =[]
-        num_fold=0
-        for i in range (len(conjunto_X_train)):  # recorre FOLDS
-            print(f"  Fold: {num_fold}")
-
-            X_train=conjunto_X_train[i]
-            X_test=conjunto_X_test[i]
-            y_train=conjunto_y_train[i]
-            y_test=conjunto_y_test[i]
-
-            clf.fit(X_train, y_train)
-            y_pred = clf.predict(X_test)
-
-            print(f"Calculando metricas...")
-            num_fold+=1
-            dicc_metricas,tn,fp,fn,tp = calcular_metricas(X_test, y_test, y_pred,name_clf,clf,num_fold)  # guarda metricas por tipo de fold 
-            #print(dicc_metricas)    # esto tiene las metricas de un fold
-            print(tn,fp,fn,tp)
-            # ================================================================================
-            # PARA CADA DATO SE CREA UNA FILA EN LA TABLA FINAL
-
-            fila = {
-                "Clasificador": name_clf,
-                "Tipo_Fold": name_val,
-                "Num_Fold": num_fold,
-                "Accuracy": dicc_metricas[num_fold]["accuracy"],
-                "Precision": dicc_metricas[num_fold]["precision"],
-                "Recall": dicc_metricas[num_fold]["recall"],
-                "Specificity": dicc_metricas[num_fold]["specificity"],
-                "Fscore": dicc_metricas[num_fold]["fscore"],
-                "AUROC": dicc_metricas[num_fold]["auroc"],
-                "tn": tn,
-                "fp": fp,
-                "fn": fn,
-                "tp": tp
-            }
-
-            datos.append(fila)
-
-            # ================================================================================ 
-
-
-
-            lista.append(dicc_metricas) # guarda las metricas de todos los folds
-        dicc_metricas_fold[name_clf+"_"+name_val]=lista
-
-
-    print("\n")
-
-    #print(dicc_metricas_fold)  # en este punto la lista tiene las metricas de todos los folds de un tipo de FOLD
-    print("\n")
-    
+        else:
+            print("No es un tipo correcto de Fold")
             
+
+    #print(datos)
+    print("\n")
     print("*************************************************************")
 
-    df = pd.DataFrame(datos, columns=encabezado)
-
-    nombre_archivo = "/tabla_metricas_"+name_clf+"_"+tipo+".csv"
-    out_path = Path(OUTPUT_PATH+nombre_archivo)
-    df.to_csv(out_path, index=False, encoding="utf-8")
-    print(f"[OK] Tabla métricas guardada en: {out_path}")
-
-
-
-    # en datos esta ya  la tabla completa
-    # hay que agrupar por clasificador y tipo de fold y sacar la media de cada uuna de las metricas
-    media = df.groupby(["Clasificador","Tipo_Fold"])[["Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"]].mean().reset_index()   # reset_index es para que vuelva a poner lo de clasificador y tipo_fold como columnas
-    #print(media)
-    nombre_archivo_media = "/tabla_metricas_media_"+name_clf+"_"+tipo+".csv"
-    out_path2 = Path(OUTPUT_PATH+nombre_archivo_media)
-    media.to_csv(out_path2, index=False, encoding="utf-8")
-    print(f"[OK] Tabla métricas guardada en: {out_path2}")
-
     
+    return datos
+
+
+def clasificador_unico_folds(X,y,clf,name_clf,val,name_val,groups):
+
+    print("*************************************************************")
+    print(f" Usando validacion: {name_val}")
+    conjunto_X_train, conjunto_X_test, conjunto_y_train, conjunto_y_test=aplicar_folds(X,y,clf,val,name_val,groups)  # solo es un fold
+    
+    lista =[]
+    num_fold=0
+    datos=[]
+    for i in range (len(conjunto_X_train)):  # recorre FOLDS
+        print(f"  Fold: {num_fold}")
+
+        X_train=conjunto_X_train[i]
+        X_test=conjunto_X_test[i]
+        y_train=conjunto_y_train[i]
+        y_test=conjunto_y_test[i]
+
+        clf.fit(X_train, y_train)
+        y_pred = clf.predict(X_test)
+
+        print(f"Calculando metricas...")
+        num_fold+=1
+    
+        dicc_metricas,tn,fp,fn,tp = calcular_metricas(X_test, y_test, y_pred,name_clf,clf,num_fold)  # guarda metricas por tipo de fold 
+        #print(dicc_metricas)    # esto tiene las metricas de un fold
+        print(tn,fp,fn,tp)
+        # ================================================================================
+        # PARA CADA DATO SE CREA UNA FILA EN LA TABLA FINAL
+       
+
+        fila = {
+            "Clasificador": name_clf,
+            "Tipo_Fold": name_val,
+            "Num_Fold": num_fold,
+            "Accuracy": dicc_metricas[num_fold]["accuracy"],
+            "Precision": dicc_metricas[num_fold]["precision"],
+            "Recall": dicc_metricas[num_fold]["recall"],
+            "Specificity": dicc_metricas[num_fold]["specificity"],
+            "Fscore": dicc_metricas[num_fold]["fscore"],
+            "AUROC": dicc_metricas[num_fold]["auroc"],
+            "tn": tn,
+            "fp": fp,
+            "fn": fn,
+            "tp": tp
+        }
+
+        datos.append(fila)
+
     return datos
 
 
@@ -219,12 +214,7 @@ def clasificador_unico(tipo:str, name_clf:str):
 
 
 
-
-
-
-
-def clasificar_todos(tipo:str):
-
+def clasificar(tipo:str,clasificador="",tipo_fold=""):
 
     X,y,groups= _get_data(tipo)
 
@@ -234,28 +224,32 @@ def clasificar_todos(tipo:str):
     encabezado = ["Clasificador","Tipo_Fold","Num_Fold","Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"] 
     df = pd.DataFrame(columns=encabezado)
     datos_total=[]
+    if clasificador=="":
+        for name_clf, clf in classifier.items():      # recorre TIPOS DE CLASIFICADORES
+            datos = clasificador_unico(tipo,name_clf,tipo_fold)    # devuelve todos los tipos de folds para un clasificador
 
-    for name_clf, clf in classifier.items():      # recorre TIPOS DE CLASIFICADORES
-        datos = clasificador_unico(tipo,name_clf)    # devuelve todos los tipos de folds para un clasificador
-
+            for el in datos:
+                datos_total.append(el)
+    else:
+        datos = clasificador_unico(tipo,clasificador,tipo_fold)    # devuelve todos los tipos de folds para un clasificador
         for el in datos:
             datos_total.append(el)
-        
-    
+            
+
     df = pd.DataFrame(datos_total, columns=encabezado)
 
-    nombre_archivo = "/tabla_metricas_"+tipo+".csv"
+    nombre_archivo,nombre_archivo_media  = obtener_nombre_archivo(clasificador, tipo_fold, tipo)
+    
     out_path = Path(OUTPUT_PATH+nombre_archivo)
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path}")
-
 
 
     # en datos_total esta ya  la tabla completa
     # hay que agrupar por clasificador y tipo de fold y sacar la media de cada uuna de las metricas
     media = df.groupby(["Clasificador","Tipo_Fold"])[["Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"]].mean().reset_index()   # reset_index es para que vuelva a poner lo de clasificador y tipo_fold como columnas
     #print(media)
-    nombre_archivo_media = "/tabla_metricas_media_"+tipo+".csv"
+    
     out_path2 = Path(OUTPUT_PATH+nombre_archivo_media)
     media.to_csv(out_path2, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path2}")
@@ -264,6 +258,26 @@ def clasificar_todos(tipo:str):
 
 
     #===============================================================            
+
+def obtener_nombre_archivo(clasificador, tipo_fold,tipo):
+    if clasificador=="" and tipo_fold=="":
+        nombre_archivo = "/tabla_metricas_"+tipo+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+tipo+".csv"
+    elif clasificador=="" and tipo_fold!="":
+        nombre_archivo = "/tabla_metricas_"+tipo+"_"+tipo_fold+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+tipo+"_"+tipo_fold+".csv"
+    elif clasificador!="" and tipo_fold=="":
+        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+".csv"
+    else:
+        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+"_"+tipo_fold+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+"_"+tipo_fold+".csv"
+
+    return nombre_archivo,nombre_archivo_media
+        
+
+
+
 
 
 def aplicar_folds (X: pd.DataFrame , y:pd.DataFrame , clf, val, name_val,groups):
@@ -440,11 +454,20 @@ if __name__ == "__main__":
     #clasificador_unico("comb","KNN")
     #clasificador_unico("eda","AdaBoost")
     #clasificador_unico("pow","SVC")
+    #clasificador_unico("eda","KNN")
+    #clasificador_unico("eda","KNN","kfold")
+    #clasificar_todos("eda","groupkfold")
 
 
     #clasificar_todos("comb")
-    clasificar_todos("eda")
+    #clasificar_todos("eda")
     #clasificar_todos("pow")
 
+    #clasificar("eda")
+    #clasificar("eda","KNN")
+    clasificar("eda","SVC","groupkfold")
 
 
+
+
+# %%
