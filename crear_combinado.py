@@ -1,5 +1,7 @@
 import pandas as pd
 from pathlib import Path
+from preprocesing import read_archivo
+from preprocesing import obtener_usuarios
 
 OUT_DIR = "C:/Users/pprru/Desktop/Bueno/datos"
 DATA_PATH = "C:/Users/pprru/Desktop/Bueno/datos"
@@ -8,28 +10,11 @@ path_eda = DATA_PATH+"/tabla_eda_con_diagnostico.csv"
 path_pow = DATA_PATH+"/bandpower_robots_all_users.csv"
 
 
-def read_archivo(path: str):
-    print(f"Leyendo archivo: {path}")
-    df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
-    return df
-
-
 # quiero limpiar las tablas para que se queden los mismos usuarios
 
-def obtener_usuarios_eda():
-    archivo_eda = read_archivo(path= path_eda)
-    etiquetas_user = archivo_eda["username"].values.tolist()
-    return etiquetas_user
-
-def obtener_usuarios_pow():
-    archivo_pow = read_archivo(path = path_pow)
-    etiquetas_user = archivo_pow["user"].values.tolist()
-    return etiquetas_user
-
 def validar_users():
-    user_eda = obtener_usuarios_eda()
-    user_pow = obtener_usuarios_pow()
+    user_eda = obtener_usuarios(path_eda)
+    user_pow = obtener_usuarios(path_pow)
     comunes = []
 
     for i in range(len(user_eda)):

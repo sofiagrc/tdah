@@ -357,34 +357,6 @@ def missing_values(tabla: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def correlacion(data:pd.DataFrame):
-    data = data.iloc[:,1:]  #coge todas las filas
-    label_encoder = LabelEncoder()
-    data.iloc[:,0]= label_encoder.fit_transform(data.iloc[:,0]).astype('float64') # revisar
-    data.info()
-    
-    plt.figure(figsize=(10, 8))   # opcional, solo para que se vea más grande
-    corr = data.corr()
-    print(corr.head())
-    sns.heatmap(corr)
-
-    plt.title("Matriz de correlación")
-    plt.tight_layout()
-    plt.show()    
-
-    columns = np.full((corr.shape[0],), True, dtype=bool)
-    for i in range(corr.shape[0]):
-        for j in range(i+1, corr.shape[0]):
-            if corr.iloc[i,j] >= 0.9:
-                if columns[j]:
-                    columns[j] = False    
-
-    selected_columns = data.columns[columns]
-    print(selected_columns.shape)
-    data = data[selected_columns]
-    return corr
-
-
 def datos_procesados_eda()-> pd.DataFrame:
     archivo_inicial = medidas_validas()
     archivo_mod1 = invalidar_actividades_nulos(archivo_inicial)

@@ -27,6 +27,8 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score   
+from preprocesing import read_archivo
+from preprocesing import obtener_usuarios
 from pathlib import Path    
 
 # LEYENDO ARCHIVOS --------------------------------------------------------------
@@ -39,13 +41,6 @@ path_demog = "C:/Users/pprru/Desktop/Balladeer/users_demographics.json"
 OUTPUT_PATH = "C:/Users/pprru/Desktop/Bueno/salidas"  
 
 
-def read_archivo(path: str):
-
-    print(f"Leyendo archivo: {path}")
-    print(path)
-    df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
-    return df
 
 
 def _get_data(tipo:str):
@@ -72,18 +67,6 @@ def _get_data(tipo:str):
     return X,y,groups
 
 
-
-def obtener_usuarios(path: str):
-    print(f"Leyendo archivo: {path}")
-    print(path)
-    df = pd.read_csv(path)
-    df.columns = [c.strip() for c in df.columns]
-    if ("username" in df):
-        df = df.rename(columns={"username": "user"})   # en cada base de datos el usuario se llama de una forma, se pone user para evitar errores
-
-
-    users = df.pop("user")
-    return users
 
 
 def normalizar_datos(X_train, X_test):
@@ -440,48 +423,6 @@ def estudio_demografico():
 
     print(f"Porcentaje NO: {etiquetas_no/len(etiquetas)}")  
     print(f"Porcentaje SI: {etiquetas_si/len(etiquetas)}")
-
-
-
-
-def correlacion(data:pd.DataFrame):
-
-    if ("username" in data):
-            data = data.rename(columns={"username": "user"}) 
-    users = data.pop("user")
-
-    if ("epoch" in data):
-        epoca = data.pop("epoch")
-
-    if ("diagnosed" in data):
-        epoca = data.pop("diagnosed")
-
-    data = data.iloc[:,1:]  #coge todas las filas
-    label_encoder = LabelEncoder()
-    data.iloc[:,0]= label_encoder.fit_transform(data.iloc[:,0]).astype('float64') # revisar
-    data.info()
-    
-    plt.figure(figsize=(10, 8))   # opcional, solo para que se vea más grande
-    corr = data.corr()
-    print(corr.head())
-    sns.heatmap(corr)
-
-    plt.title("Matriz de correlación")
-    plt.tight_layout()
-    plt.show()    
-
-    columns = np.full((corr.shape[0],), True, dtype=bool)
-    for i in range(corr.shape[0]):
-        for j in range(i+1, corr.shape[0]):
-            if corr.iloc[i,j] >= 0.9:
-                if columns[j]:
-                    columns[j] = False    
-
-    selected_columns = data.columns[columns]
-    print(selected_columns.shape)
-    data = data[selected_columns]
-    return corr
-
 
 
 

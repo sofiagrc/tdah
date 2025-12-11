@@ -14,7 +14,8 @@ import seaborn as sns
 from clasificar import classifier
 from clasificar import validation   
 from clasificar import clasificar
-from clasificar import correlacion
+from preprocesing import correlacion
+from preprocesing import eliminar_correlacion
 from clasificar import DATA_PATH
 from clasificar import read_archivo
 
@@ -135,11 +136,16 @@ if st.button("Cargar Datos", use_container_width=True):
     else:
         ruta = DATA_PATH+"/combinada.csv"
 
-    archivo  = read_archivo(ruta)
-    if ("username" in df):
-        df = df.rename(columns={"username": "user"}) 
-    corr = correlacion(archivo)
+    data,corr = correlacion(ruta)
+    filtrada = eliminar_correlacion(data,corr,0.9)
     sns.heatmap(corr)
+    st.pyplot(plt)
+
+# filtrada es la tabla sin los datos que tenian correlacion
+
+
+    data2,corr2 = correlacion(filtrada)
+    sns.heatmap(corr2)
     st.pyplot(plt)
 
 
