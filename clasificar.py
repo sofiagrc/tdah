@@ -8,10 +8,13 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.datasets import make_classification
 from sklearn.neighbors import KNeighborsClassifier
+import seaborn as sns 
+
 
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GroupKFold
@@ -238,21 +241,21 @@ def clasificar(tipo:str,clasificador="",tipo_fold=""):
 
     df = pd.DataFrame(datos_total, columns=encabezado)
 
+
     nombre_archivo,nombre_archivo_media  = obtener_nombre_archivo(clasificador, tipo_fold, tipo)
     
     out_path = Path(OUTPUT_PATH+nombre_archivo)
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path}")
 
-
-    # en datos_total esta ya  la tabla completa
-    # hay que agrupar por clasificador y tipo de fold y sacar la media de cada uuna de las metricas
     media = df.groupby(["Clasificador","Tipo_Fold"])[["Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"]].mean().reset_index()   # reset_index es para que vuelva a poner lo de clasificador y tipo_fold como columnas
     #print(media)
     
     out_path2 = Path(OUTPUT_PATH+nombre_archivo_media)
     media.to_csv(out_path2, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path2}")
+
+    return df,media
 
 
 
@@ -437,7 +440,47 @@ def estudio_demografico():
 
     print(f"Porcentaje NO: {etiquetas_no/len(etiquetas)}")  
     print(f"Porcentaje SI: {etiquetas_si/len(etiquetas)}")
+
+
+
+
+def correlacion(data:pd.DataFrame):
+
+    if ("username" in data):
+            data = data.rename(columns={"username": "user"}) 
+    users = data.pop("user")
+
+    if ("epoch" in data):
+        epoca = data.pop("epoch")
+
+    if ("diagnosed" in data):
+        epoca = data.pop("diagnosed")
+
+    data = data.iloc[:,1:]  #coge todas las filas
+    label_encoder = LabelEncoder()
+    data.iloc[:,0]= label_encoder.fit_transform(data.iloc[:,0]).astype('float64') # revisar
+    data.info()
     
+    plt.figure(figsize=(10, 8))   # opcional, solo para que se vea más grande
+    corr = data.corr()
+    print(corr.head())
+    sns.heatmap(corr)
+
+    plt.title("Matriz de correlación")
+    plt.tight_layout()
+    plt.show()    
+
+    columns = np.full((corr.shape[0],), True, dtype=bool)
+    for i in range(corr.shape[0]):
+        for j in range(i+1, corr.shape[0]):
+            if corr.iloc[i,j] >= 0.9:
+                if columns[j]:
+                    columns[j] = False    
+
+    selected_columns = data.columns[columns]
+    print(selected_columns.shape)
+    data = data[selected_columns]
+    return corr
 
 
 
@@ -463,9 +506,13 @@ if __name__ == "__main__":
     #clasificar_todos("eda")
     #clasificar_todos("pow")
 
-    #clasificar("eda")
+
     #clasificar("eda","KNN")
-    clasificar("eda","SVC","groupkfold")
+    #clasificar("eda","SVC","groupkfold")
+
+    #clasificar("eda")
+    #clasificar("pow")
+    clasificar("comb")
 
 
 

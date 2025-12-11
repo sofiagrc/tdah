@@ -357,7 +357,7 @@ def missing_values(tabla: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def correlacion(data:pd.DataFrame)->tuple[pd.DataFrame]:
+def correlacion(data:pd.DataFrame):
     data = data.iloc[:,1:]  #coge todas las filas
     label_encoder = LabelEncoder()
     data.iloc[:,0]= label_encoder.fit_transform(data.iloc[:,0]).astype('float64') # revisar
@@ -382,7 +382,7 @@ def correlacion(data:pd.DataFrame)->tuple[pd.DataFrame]:
     selected_columns = data.columns[columns]
     print(selected_columns.shape)
     data = data[selected_columns]
-    return data
+    return corr
 
 
 def datos_procesados_eda()-> pd.DataFrame:
@@ -393,7 +393,7 @@ def datos_procesados_eda()-> pd.DataFrame:
     archivo_mod4 = missing_values(archivo_mod3)
 
     archivo_salida = "C:/Users/pprru/Desktop/salidas2/procesado_eda.csv"
-    archivo_mod4.to_csv(archivo_salida, index=False, encoding="utf-8")
+   # archivo_mod4.to_csv(archivo_salida, index=False, encoding="utf-8")
     print(f"[OK] Tabla Y guardada en: {archivo_salida}")
 
     return archivo_mod4
