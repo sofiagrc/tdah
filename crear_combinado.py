@@ -15,13 +15,16 @@ path_pow = DATA_PATH+"/bandpower_robots_all_users.csv"
 def validar_users():
     user_eda = obtener_usuarios(path_eda)
     user_pow = obtener_usuarios(path_pow)
-    comunes = []
 
-    for i in range(len(user_eda)):
-        if ( user_eda[i] in user_pow):
-            comunes.append(user_eda[i])
+    # pasar a strings, quitar espacios, y únicos
+    set_eda = {str(u).strip() for u in user_eda}
+    set_pow = {str(u).strip() for u in user_pow}
 
-    return (comunes)  # contiene los usuarios comunes a las dos bases de datos
+    comunes = sorted(set_eda & set_pow)
+    print("EDA únicos:", len(set_eda))
+    print("POW únicos:", len(set_pow))
+    print("Comunes:", len(comunes), comunes[:20])
+    return comunes
 
 
 def base_datos_completa():
@@ -32,6 +35,8 @@ def base_datos_completa():
     archivo_eda = read_archivo(path_eda)
 
     comunes = validar_users()
+    print("usuarios comunes")
+    print(comunes)
 
     # elimino las que no sean comunes
     archivo_pow_filtrado = archivo_pow[archivo_pow["user"].isin(comunes)].copy()  # dataframe de pow con los usuarios comunes
@@ -49,28 +54,52 @@ def base_datos_completa():
         how="left"     # left: se quedan todas las filas de POW
     )
 
+    print(df_mix)
     return df_mix
 
 
-def limpiar_tabla():
-    df = base_datos_completa()
-    df.drop(['EDA_diagnosed'], axis='columns', inplace=True)
+def limpiar_tabla(df = base_datos_completa(), path =Path(DATA_PATH), correlacion_lim=1):
 
-    out_path = Path(OUT_DIR+"/combinada.csv")
+    if correlacion_lim!=1:
+        texto_correlacion="_"+str(correlacion_lim)
+
+
+    if 'EDA_diagnosed' in df.columns:
+        df.drop(['EDA_diagnosed'], axis='columns', inplace=True)
+
+
+    if (correlacion_lim!=1):
+        print("entra")
+        X_out_path =  OUT_DIR / f"combinada_x{texto_correlacion}.csv"
+        y_out_path = OUT_DIR / f"combinada_y{texto_correlacion}.csv"
+        out_path = OUT_DIR / f"combinada{texto_correlacion}.csv"
+
+        
+
+
+    else:
+        X_out_path =  Path(OUT_DIR+"/combinada_x.csv")
+        y_out_path = Path(OUT_DIR+"/combinada_y.csv")
+        out_path = Path(OUT_DIR+"/combinada.csv")
+
+
+    
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla final combinada guardada en: {out_path}")
 
     y = df[["diagnosed"]]
-    y_out_path = Path(OUT_DIR+"/combinada_y.csv")
+    
     y.to_csv(y_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla Y guardada en: {y_out_path}")
 
     columnas_a_quitar = [c for c in ["diagnosed", "user", "username", "epoch"] if c in df.columns]
 
     X = df.drop(columns=columnas_a_quitar)
-    X_out_path =  Path(OUT_DIR+"/combinada_x.csv")
+    
     X.to_csv(X_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla X guardada en: {X_out_path}")
+
+    return X,y,X_out_path,y_out_path,  out_path
 
 
 
@@ -79,4 +108,3 @@ def limpiar_tabla():
 
 if __name__ == "__main__":
    limpiar_tabla()
-

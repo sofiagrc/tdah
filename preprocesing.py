@@ -10,6 +10,9 @@ from pathlib import Path
 path_pow = "C:/Users/pprru/Desktop/salidas2/procesado_pow.csv"
 path_eda = "C:/Users/pprru/Desktop/salidas2/procesado_eda.csv"
 
+DATA_PATH = "C:/Users/pprru/Desktop/Bueno/datos"
+
+
 def read_archivo(path: str):
 
     print(f"Leyendo archivo: {path}")
@@ -28,63 +31,74 @@ def obtener_usuarios(path: str):
     users = df.pop("user")
     return users
 
+import pandas as pd
+
 def correlacion(entrada):
-    print(f"Es un: {type(entrada)}")
-    print(entrada)
+    # Cargar
+    if isinstance(entrada, str):     # recibe un str
+        df = read_archivo(entrada)
+    elif isinstance(entrada, pd.DataFrame):   # recibe un dataframe
+        df = entrada.copy()
+    else:
+        raise TypeError(f"entrada debe ser str o DataFrame, no {type(entrada)}")
 
-    if type(entrada)==str:
-        data = read_archivo(entrada)
-        print("entra aqui")
+    #  Normalizar nombres por si vienen con espacios
+    df.columns = [c.strip() for c in df.columns]
+    print(df.columns)
 
-    elif type(entrada)==pd.DataFrame:
-        data = entrada
+    # Separar columnas que NO deben entrar en la correlación
+    cols_excluir = [c for c in ["username", "user", "epoch", "diagnosed"] if c in df.columns]
 
+    # Features = todo menos esas columnas
+    feat = df.drop(columns=cols_excluir, errors="ignore").copy()
 
-    if ("username" in data):
-        data = data.rename(columns={"username": "user"}) 
-        users = data.pop("user")
+    # 5) Correlación solo numérica
+    corr = feat.corr(numeric_only=True)
 
-    if ("epoch" in data):
-        epoca = data.pop("epoch")
-
-    if ("diagnosed" in data):
-        epoca = data.pop("diagnosed")
-
-    data = data.iloc[:,1:]  #coge todas las filas
-    label_encoder = LabelEncoder()
-    data.iloc[:,0]= label_encoder.fit_transform(data.iloc[:,0]).astype('float64') # revisar
-    data.info()
-    
-    plt.figure(figsize=(10, 8))   # opcional, solo para que se vea más grande
-    corr = data.corr()
-    print(corr.head())
     sns.heatmap(corr)
 
     plt.title("Matriz de correlación")
     plt.tight_layout()
     plt.show()    
 
-    
-    return data, corr
 
 
-def eliminar_correlacion(data,corr, limite):
+    return df, corr
 
-    columns = np.full((corr.shape[0],), True, dtype=bool)
-    for i in range(corr.shape[0]):
-        for j in range(i+1, corr.shape[0]):
-            if corr.iloc[i,j] >= limite:
-                if columns[j]:
-                    columns[j] = False    
 
-    selected_columns = data.columns[columns]
-    print(selected_columns.shape)
-    data = data[selected_columns]
-    
-    # las que siguen siendo verdderas y se guardan son las que no tienen correlacion
-    print(data)
-    return data
+
+def eliminar_correlacion(df: pd.DataFrame, corr: pd.DataFrame, limite: float,
+                         protected=("username", "user", "epoch", "diagnosed")) -> pd.DataFrame:
+ 
+
+    # 1) columnas a proteger (si existen)
+    protected = [c for c in protected if c in df.columns]
+    df_prot = df[protected].copy()
+
+    # 2) trabajamos SOLO con las columnas que están en corr (features)
+    feat_cols = [c for c in corr.columns if c in df.columns]
+    X = df[feat_cols].copy()
+
+    # 3) máscara de selección sobre feat_cols (mismo orden que corr)
+    keep = np.ones(len(feat_cols), dtype=bool)
+
+    for i in range(len(feat_cols)):
+        if not keep[i]:
+            continue
+        for j in range(i + 1, len(feat_cols)):
+            if keep[j] and corr.iloc[i, j] >= limite:
+                keep[j] = False
+
+    selected_feat_cols = [c for c, k in zip(feat_cols, keep) if k]
+
+    # 4) devolver df con protegidas + features filtradas
+    df_out = pd.concat([df_prot.reset_index(drop=True),
+                        X[selected_feat_cols].reset_index(drop=True)], axis=1)
+
+    print(f"[INFO] Features antes: {len(feat_cols)} | después: {len(selected_feat_cols)}")
+    return df_out
+
 
 
 if __name__ == "__main__":
-    correlacion(path_eda,"eda")
+    correlacion(DATA_PATH+"/bandpower_robots_all_users.csv")

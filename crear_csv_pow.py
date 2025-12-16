@@ -324,32 +324,61 @@ def datos_procesados_pow() -> pd.DataFrame:
 
 
 
-def guardar_tablas(tabla_final: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
+def guardar_tablas(tabla_final: pd.DataFrame,salida_dir, correlacion=1) :
+    
+
+    if correlacion!=1:
+        texto_correlacion="_"+str(correlacion)
+
 
     # Comprobar que no viene vacía
     if tabla_final is None or tabla_final.empty:
         raise ValueError("[ERROR] 'tabla_final' está vacía. No se puede guardar nada.")
 
     # Tabla entera
-    out_path = salida_dir / "bandpower_robots_all_users.csv"
+
+
+
+    
+
+    if (correlacion!=1):
+        print("entra")
+        X_out_path =  salida_dir / f"features_robots_all_users{texto_correlacion}.csv"
+        y_out_path = salida_dir / f"labels_robots_all_users{texto_correlacion}.csv"
+        out_path = salida_dir / f"bandpower_robots_all_users{texto_correlacion}.csv"
+
+        print(X_out_path)
+
+
+    else:
+        X_out_path = salida_dir / f"features_robots_all_users.csv"
+        y_out_path = salida_dir / f"labels_robots_all_users.csv"
+    out_path = salida_dir / f"bandpower_robots_all_users.csv"
+
+    
     tabla_final.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla global guardada en: {out_path}")
 
     # Y (labels)
     if "diagnosed" not in tabla_final.columns:
         raise ValueError("[ERROR] La columna 'diagnosed' no está en tabla_final.")
+    
+
+        
 
     y = tabla_final[["diagnosed"]]
-    y_out_path = salida_dir / "labels_robots_all_users.csv"
     y.to_csv(y_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla Y guardada en: {y_out_path}")
 
     # X (features)
     columnas_a_quitar = [c for c in ["diagnosed", "user", "epoch"] if c in tabla_final.columns]
+
     X = tabla_final.drop(columns=columnas_a_quitar)
-    X_out_path = salida_dir / "features_robots_all_users.csv"
     X.to_csv(X_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla X guardada en: {X_out_path}")
+
+
+
 
     return X, y, X_out_path, y_out_path, out_path
 
@@ -361,17 +390,16 @@ def guardar_tablas(tabla_final: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
 
 
 #%% -------------------------------------------------------------------------------------------------------------
-def compute_pow(base_dir: Path = BASE_DIR,demog_json: Path = DEMOG_JSON,eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR ) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
+def compute_pow(base_dir: Path = BASE_DIR,demog_json: Path = DEMOG_JSON,eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR, correlacion=1 ):
     # recibe las rutas de los archivos y una ruta de salida
     # devuelve X, y y la ruta de donde se encuentran las tres tablas creadas
     tabla_caracteristicas = crear_tabla_caracteristicas(base_dir, demog_json, eda_csv)
-    X, y, X_out_path, y_out_path, out_path = guardar_tablas(tabla_caracteristicas, salida_dir)
+    X, y, X_out_path, y_out_path, out_path = guardar_tablas(tabla_caracteristicas, salida_dir,correlacion)
     return X, y, X_out_path, y_out_path, out_path
 
 
 
 if __name__ == "__main__":
-    
     X, y, X_path, y_path, full_path = compute_pow()
     #datos_procesados_pow()
     #tabla= crear_tabla_caracteristicas(BASE_DIR, DEMOG_JSON, EDA_CSV)

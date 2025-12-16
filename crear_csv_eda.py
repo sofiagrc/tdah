@@ -402,25 +402,43 @@ def construir_tabla_eda_con_diagnostico(df_eda: pd.DataFrame) -> pd.DataFrame: #
     return tabla_diag
 
 
-def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataFrame, pd.DataFrame, Path, Path, Path]:
+def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path, correlacion=1):
+    
+    
+    if correlacion!=1:
+        texto_correlacion="_"+str(correlacion)
+
     """
     Recibe la tabla de características + diagnosed (todas_filas)
     y un directorio de salida.
     Devuelve X, y y las rutas de las tres tablas creadas.
     """
-    print(todas_filas)
+    #print(todas_filas)
     if todas_filas is None or todas_filas.empty:
         raise ValueError("[ERROR] 'todas_filas' está vacío. No se puede guardar nada.")
 
+    if (correlacion!=1):
+        print("entra")
+        X_out_path =  salida_dir / f"features_eda_all_users{texto_correlacion}.csv"
+        y_out_path = salida_dir / f"labels_eda_all_users{texto_correlacion}.csv"
+        out_path = salida_dir / f"tabla_eda_con_diagnostico{texto_correlacion}.csv"
+
+        print(X_out_path)
+
+
+    else:
+        X_out_path = salida_dir / "features_eda_all_users.csv"
+        y_out_path = salida_dir / "labels_eda_all_users.csv"
+        out_path = salida_dir / "tabla_eda_con_diagnostico.csv"
 
     tabla_final = todas_filas.copy()
-    out_path = salida_dir / "tabla_eda_con_diagnostico.csv"
+   
     tabla_final.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla EDA + diagnóstico guardada en: {out_path}")
 
     # columna diagnosed (binaria)
     y = tabla_final[["diagnosed"]]
-    y_out_path = salida_dir / "labels_eda_all_users.csv"
+    
     y.to_csv(y_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla Y guardada en: {y_out_path}")
 
@@ -429,13 +447,12 @@ def guardar_tablas(todas_filas: pd.DataFrame,salida_dir: Path) -> Tuple[pd.DataF
     columnas_a_quitar = [c for c in ["diagnosed", "user", "username", "epoch"] if c in tabla_final.columns]
 
     X = tabla_final.drop(columns=columnas_a_quitar)
-    X_out_path = salida_dir / "features_eda_all_users.csv"
     X.to_csv(X_out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla X guardada en: {X_out_path}")
 
     return X, y, X_out_path, y_out_path, out_path
 
-def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR):
+def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_csv: Path = EDA_CSV,salida_dir: Path = OUT_DIR,correlacion=1):
 
 
     print("\n[STEP 1] medidas_validas()")
@@ -460,7 +477,7 @@ def compute_eda(base_dir: Path = BASE_DIR, demog_json: Path = DEMOG_JSON, eda_cs
     df7 = construir_tabla_eda_con_diagnostico(df6)
 
     print("\n[STEP 7] guardar_tablas()")
-    X, y, X_out_path, y_out_path, out_path = guardar_tablas(df7, salida_dir)
+    X, y, X_out_path, y_out_path, out_path = guardar_tablas(df7, salida_dir, correlacion)
 
     print("\n[OK] Pipeline EDA completo.")
     print(f"     - X  -> {X_out_path}")

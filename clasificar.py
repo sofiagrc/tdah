@@ -14,6 +14,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.datasets import make_classification
 from sklearn.neighbors import KNeighborsClassifier
 import seaborn as sns 
+import os
 
 
 from sklearn.model_selection import KFold
@@ -27,9 +28,19 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score   
+from sklearn.neural_network import MLPClassifier
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+
 from preprocesing import read_archivo
 from preprocesing import obtener_usuarios
-from pathlib import Path    
+from pathlib import Path  
+from preprocesing import correlacion  
+from preprocesing import eliminar_correlacion
+from crear_csv_pow import guardar_tablas as guardar_tablas_pow
+from crear_csv_eda import guardar_tablas as guardar_tablas_eda
+from crear_combinado import limpiar_tabla
 
 # LEYENDO ARCHIVOS --------------------------------------------------------------
 # modifique las variables en funcion de su config
@@ -43,27 +54,81 @@ OUTPUT_PATH = "C:/Users/pprru/Desktop/Bueno/salidas"
 
 
 
-def _get_data(tipo:str):
+
+
+def _get_data(tipo:str, correlacion_lim=1):
+
+    if correlacion_lim!=1:
+        texto_correlacion="_"+str(correlacion_lim)
+    else:
+        texto_correlacion=""
+
     if (tipo=="pow"):
-        path_x = DATA_PATH+"/features_robots_all_users.csv"
-        path_y = DATA_PATH+"/labels_robots_all_users.csv"
-        groups = obtener_usuarios(DATA_PATH+"/bandpower_robots_all_users.csv")
+        path_x = DATA_PATH+"/features_robots_all_users"+texto_correlacion+".csv"
+        path_y = DATA_PATH+"/labels_robots_all_users"+texto_correlacion+".csv"
+    elif (tipo=="eda"):
+        path_x = DATA_PATH+"/features_eda_all_users"+texto_correlacion+".csv"
+        path_y = DATA_PATH+"/labels_eda_all_users"+texto_correlacion+".csv"
+    elif (tipo=="comb"):
+        path_x = DATA_PATH+"/combinada_x"+texto_correlacion+".csv"
+        path_y = DATA_PATH+"/combinada_y"+texto_correlacion+".csv"
+
+    if not (os.path.exists(path_x) and os.path.exists(path_y)):
+        # primero hay que crear los archivos
+        if tipo=="pow":
+            archivo_base= DATA_PATH+ "/bandpower_robots_all_users.csv"
+            
+        elif (tipo=="eda"):
+            archivo_base = (DATA_PATH+"/tabla_eda_con_diagnostico.csv")
+            
+        else:
+            archivo_base = DATA_PATH+ "/combinada.csv"
+
+        print(archivo_base)
+        archivo = read_archivo(archivo_base)
+
+        print(" se ha leido el archivo")
+
+        #print(type(archivo))
+        #print(archivo)
+
+
+        data, corr =correlacion(archivo)    # le puedo pasar un str o un dataframe
+        # devuelve la correlacion numerica (corr) y 
+
+        data2 = eliminar_correlacion(data,corr,correlacion_lim)
+
+        print("hace la correlacion: ")
+        #print(data2)
+
+
+        #ahora hay que generar los archivos x e y segun el tipo
+
+        if tipo=="pow" :
+            X, y, path_x, path_y, out_path = guardar_tablas_pow(data2,  Path(DATA_PATH),correlacion_lim)
+        
+        elif tipo=="eda":
+            X, y, path_x, path_y, out_path = guardar_tablas_eda(data2,  Path(DATA_PATH),correlacion_lim)
+            
+        else:
+            X, y, path_x, path_y, out_path =limpiar_tabla(data2,correlacion_lim)
+    
+
+    # saca los grupos de las tablas estuvieran creadas o no
+
+    if tipo=="pow":
+        groups = obtener_usuarios(DATA_PATH+ "/bandpower_robots_all_users.csv")
 
     elif (tipo=="eda"):
-        path_x = DATA_PATH+"/features_eda_all_users.csv"
-        path_y = DATA_PATH+"/labels_eda_all_users.csv"
-        groups = obtener_usuarios(DATA_PATH+"/tabla_eda_con_diagnostico.csv")
-        print("C:/Users/pprru/Desktop/salidas_eda_nueva/tabla_eda_con_diagnostico.csv")
+        groups = obtener_usuarios(DATA_PATH+ "/tabla_eda_con_diagnostico.csv")
+    
+    else:
+        groups = obtener_usuarios(DATA_PATH+ "/combinada.csv")
 
-    elif (tipo=="comb"):
-        path_x = DATA_PATH+"/combinada_x.csv"
-        path_y = DATA_PATH+"/combinada_y.csv"
-        groups = obtener_usuarios(DATA_PATH+"/combinada.csv")
-
+    
     X = read_archivo(path_x)
     y = read_archivo(path_y)
 
-    
     return X,y,groups
 
 
@@ -85,6 +150,8 @@ classifier = {
     "SVC": svm.SVC(),
     "AdaBoost": AdaBoostClassifier(n_estimators=100, random_state=42),
     "KNN": KNeighborsClassifier(n_neighbors=3),
+    "MLP": MLPClassifier(hidden_layer_sizes=(128,64,32), random_state=42),
+    "Pytorch": 
 
 }
 
@@ -97,7 +164,7 @@ validation = {
 
 
 
-def clasificador_unico(tipo:str, name_clf:str, tipo_fold:str=""):
+def clasificador_unico(tipo:str, name_clf:str, tipo_fold:str="",correlacion_lim=1):
 
     if (name_clf in classifier.keys()):
         clf = classifier[name_clf]
@@ -105,13 +172,13 @@ def clasificador_unico(tipo:str, name_clf:str, tipo_fold:str=""):
     else:
         print("Clasificador no válido")
 
-    X,y,groups= _get_data(tipo)
+    X,y,groups= _get_data(tipo, correlacion_lim)
+
 
     
     encabezado = ["Clasificador","Tipo_Fold","Num_Fold","Accuracy","Precision","Recall","Specificity","Fscore","AUROC","tn","fp","fn","tp"] 
     df = pd.DataFrame(columns=encabezado)
-    datos=[]
-
+    datos=[]    
     print("\n")
     print("=============================================================")
     print(f"Aplicando clasificador: {name_clf}")
@@ -196,13 +263,13 @@ def clasificador_unico_folds(X,y,clf,name_clf,val,name_val,groups):
 
 
 
+def clasificar(tipo:str,clasificador="",tipo_fold="", correlacion_lim=1):
 
+    
 
-
-
-def clasificar(tipo:str,clasificador="",tipo_fold=""):
-
-    X,y,groups= _get_data(tipo)
+    X,y,groups= _get_data(tipo,correlacion_lim)
+    print("Datos filtrando cprrelacion")
+    print(X)
 
     dicc_metricas_clasificador={}
     dicc_metricas_fold={}
@@ -212,21 +279,22 @@ def clasificar(tipo:str,clasificador="",tipo_fold=""):
     datos_total=[]
     if clasificador=="":
         for name_clf, clf in classifier.items():      # recorre TIPOS DE CLASIFICADORES
-            datos = clasificador_unico(tipo,name_clf,tipo_fold)    # devuelve todos los tipos de folds para un clasificador
-
+            datos = clasificador_unico(tipo,name_clf,tipo_fold,correlacion_lim)    # devuelve todos los tipos de folds para un clasificador
             for el in datos:
                 datos_total.append(el)
     else:
-        datos = clasificador_unico(tipo,clasificador,tipo_fold)    # devuelve todos los tipos de folds para un clasificador
+        datos = clasificador_unico(tipo,clasificador,tipo_fold, correlacion_lim)    # devuelve todos los tipos de folds para un clasificador
         for el in datos:
             datos_total.append(el)
-            
-
+        
+    print("tabla filtrada por correlaciion datps: ")
     df = pd.DataFrame(datos_total, columns=encabezado)
 
 
-    nombre_archivo,nombre_archivo_media  = obtener_nombre_archivo(clasificador, tipo_fold, tipo)
-    
+    print(df)
+    print("datos metricas filtrados")
+
+    nombre_archivo,nombre_archivo_media  = obtener_nombre_archivo(clasificador, tipo_fold, tipo,correlacion_lim)
     out_path = Path(OUTPUT_PATH+nombre_archivo)
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"[OK] Tabla métricas guardada en: {out_path}")
@@ -245,19 +313,24 @@ def clasificar(tipo:str,clasificador="",tipo_fold=""):
 
     #===============================================================            
 
-def obtener_nombre_archivo(clasificador, tipo_fold,tipo):
-    if clasificador=="" and tipo_fold=="":
-        nombre_archivo = "/tabla_metricas_"+tipo+".csv"
-        nombre_archivo_media = "/tabla_metricas_media_"+tipo+".csv"
-    elif clasificador=="" and tipo_fold!="":
-        nombre_archivo = "/tabla_metricas_"+tipo+"_"+tipo_fold+".csv"
-        nombre_archivo_media = "/tabla_metricas_media_"+tipo+"_"+tipo_fold+".csv"
-    elif clasificador!="" and tipo_fold=="":
-        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+".csv"
-        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+".csv"
+def obtener_nombre_archivo(clasificador, tipo_fold,tipo,correlacion_lim=1):
+    if correlacion_lim==1:
+        texto_corr=""
     else:
-        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+"_"+tipo_fold+".csv"
-        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+"_"+tipo_fold+".csv"
+        texto_corr="_"+str(correlacion_lim)
+
+    if clasificador=="" and tipo_fold=="":
+        nombre_archivo = "/tabla_metricas_"+tipo+texto_corr+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+tipo+texto_corr+".csv"
+    elif clasificador=="" and tipo_fold!="":
+        nombre_archivo = "/tabla_metricas_"+tipo+"_"+tipo_fold+texto_corr+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+tipo+"_"+tipo_fold+texto_corr+".csv"
+    elif clasificador!="" and tipo_fold=="":
+        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+texto_corr+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+texto_corr+".csv"
+    else:
+        nombre_archivo = "/tabla_metricas_"+clasificador+"_"+tipo+"_"+tipo_fold+texto_corr+".csv"
+        nombre_archivo_media = "/tabla_metricas_media_"+clasificador+"_"+tipo+"_"+tipo_fold+texto_corr+".csv"
 
     return nombre_archivo,nombre_archivo_media
         
@@ -426,6 +499,18 @@ def estudio_demografico():
 
 
 
+
+
+
+
+
+
+
+#///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # RED NEURONAL
+    x = torc
+
+
 # añadir funcion get_Data  --
 # cambiar Paths  --
 # cambiar nombre archivos salida metricas --
@@ -454,8 +539,8 @@ if __name__ == "__main__":
     #clasificar("eda")
     #clasificar("pow")
     clasificar("comb")
-
-
+    clasificar("pow")
+    clasificar("eda")
 
 
 # %%
