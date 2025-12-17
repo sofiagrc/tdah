@@ -146,12 +146,28 @@ def normalizar_datos(X_train, X_test):
 
 # PREDICCION CON Clasificadores -------------------------------------------------
 
+#//////////////////////------------------------------------------------------------------------------------------------------
+
+def crear_torch(n_features, n_classes, n_hidden=64):
+
+    return nn.Sequential(
+        nn.Linear(n_features, n_hidden),
+        nn.Sigmoid(),
+        nn.Linear(n_hidden, n_classes)
+    )
+
+
+
 classifier = {
     "SVC": svm.SVC(),
     "AdaBoost": AdaBoostClassifier(n_estimators=100, random_state=42),
     "KNN": KNeighborsClassifier(n_neighbors=3),
-    "MLP": MLPClassifier(hidden_layer_sizes=(128,64,32), random_state=42),
-    "Pytorch": 
+    "MLP_1": MLPClassifier(hidden_layer_sizes=(128,64,32), random_state=42),
+    "MLP_2": MLPClassifier(hidden_layer_sizes=(128,256,128,64), random_state=42),
+    "MLP_3": MLPClassifier(hidden_layer_sizes=(128,256,128,64,32), random_state=42),
+    "Pytorch": crear_torch
+
+    
 
 }
 
@@ -228,13 +244,58 @@ def clasificador_unico_folds(X,y,clf,name_clf,val,name_val,groups):
         y_train=conjunto_y_train[i]
         y_test=conjunto_y_test[i]
 
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
+        #//////////////////////////-------------------------------------------------------------------------------------
+        if name_clf == "Pytorch":
+        
+            Xtr = torch.tensor(X_train, dtype=torch.float32)
+            ytr = torch.tensor(y_train, dtype=torch.long)
+            Xte = torch.tensor(X_test,  dtype=torch.float32)
 
-        print(f"Calculando metricas...")
-        num_fold+=1
-    
-        dicc_metricas,tn,fp,fn,tp = calcular_metricas(X_test, y_test, y_pred,name_clf,clf,num_fold)  # guarda metricas por tipo de fold 
+            n_features = Xtr.shape[1]   # coge las colummnas de caracteristicas
+            n_classes  = int(torch.unique(ytr).numel())
+
+            model = crear_torch(n_features, n_classes, n_hidden=64)
+
+            criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)   #se usa ADAM como optimizador
+
+                        
+            model.train()
+            for epoch in range(50):
+                optimizer.zero_grad()
+                logits = model(Xtr)          # forward
+                loss = criterion(logits, ytr)
+                loss.backward()              # backward
+                optimizer.step()             # update
+            
+            model.eval()
+            with torch.no_grad():
+                logits_test = model(Xte)
+                y_pred = logits_test.argmax(dim=1).cpu().numpy()
+                probs  = torch.softmax(logits_test, dim=1)[:, 1].cpu().numpy()
+
+            num_fold += 1
+            
+        #//////////////////////////-------------------------------------------------------------------------------------
+
+        else:
+            clf.fit(X_train, y_train)
+            y_pred = clf.predict(X_test)
+
+            num_fold += 1
+            
+
+                
+        if name_clf == "Pytorch":
+            dicc_metricas, tn, fp, fn, tp = calcular_metricas(
+                X_test, y_test, y_pred, name_clf, model, num_fold, scores=probs
+            )
+        else:
+            dicc_metricas, tn, fp, fn, tp = calcular_metricas(
+                X_test, y_test, y_pred, name_clf, clf, num_fold
+            )
+
+
         #print(dicc_metricas)    # esto tiene las metricas de un fold
         print(tn,fp,fn,tp)
         # ================================================================================
@@ -263,13 +324,13 @@ def clasificador_unico_folds(X,y,clf,name_clf,val,name_val,groups):
 
 
 
-def clasificar(tipo:str,clasificador="",tipo_fold="", correlacion_lim=1):
 
-    
+def clasificar(tipo:str,clasificador="",tipo_fold="", correlacion_lim=1):
 
     X,y,groups= _get_data(tipo,correlacion_lim)
     print("Datos filtrando cprrelacion")
     print(X)
+
 
     dicc_metricas_clasificador={}
     dicc_metricas_fold={}
@@ -426,7 +487,7 @@ def aplicar_folds (X: pd.DataFrame , y:pd.DataFrame , clf, val, name_val,groups)
 #  CALCULO DE METRICAS -------------------------------------------------
 
 
-def calcular_metricas(X_test, y_test, y_pred, name_clf, clf, fold):
+def calcular_metricas(X_test, y_test, y_pred, name_clf, clf, fold, scores=None):
     dicc_metricas={}
 
     accuracy = accuracy_score(y_test, y_pred)
@@ -450,17 +511,18 @@ def calcular_metricas(X_test, y_test, y_pred, name_clf, clf, fold):
     clases_test = np.unique(y_test)
     if len(clases_test) > 1:
         try:
-            if hasattr(clf, "decision_function"):
-                scores = clf.decision_function(X_test)
-            elif hasattr(clf, "predict_proba"):
-                scores = clf.predict_proba(X_test)[:, 1]
-            else:
-                scores = None
+            # SOLO calcular scores internos si NO vienen dados
+            if scores is None:
+                if hasattr(clf, "decision_function"):
+                    scores = clf.decision_function(X_test)
+                elif hasattr(clf, "predict_proba"):
+                    scores = clf.predict_proba(X_test)[:, 1]
 
             if scores is not None:
                 auroc = roc_auc_score(y_test, scores)
         except ValueError:
             auroc = np.nan
+
 
     dicc_metricas[fold] = {
         "accuracy": accuracy,
@@ -501,14 +563,6 @@ def estudio_demografico():
 
 
 
-
-
-
-
-
-#///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    # RED NEURONAL
-    x = torc
 
 
 # añadir funcion get_Data  --
