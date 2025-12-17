@@ -2,12 +2,16 @@
 #%% -------------------------------------------------------------------------------------------------------------
 #  Machine Learning con scikit-learn 
 # SVM
+
+
 from sklearn.model_selection import train_test_split
 from sklearn import svm
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import torch
+import torch.nn as nn
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import AdaBoostClassifier
@@ -29,8 +33,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score   
 from sklearn.neural_network import MLPClassifier
-import torch
-import torch.nn as nn
+
 from torch.utils.data import TensorDataset, DataLoader
 
 from preprocesing import read_archivo
@@ -41,6 +44,10 @@ from preprocesing import eliminar_correlacion
 from crear_csv_pow import guardar_tablas as guardar_tablas_pow
 from crear_csv_eda import guardar_tablas as guardar_tablas_eda
 from crear_combinado import limpiar_tabla
+
+
+
+
 
 # LEYENDO ARCHIVOS --------------------------------------------------------------
 # modifique las variables en funcion de su config
@@ -148,14 +155,18 @@ def normalizar_datos(X_train, X_test):
 
 #//////////////////////------------------------------------------------------------------------------------------------------
 
-def crear_torch(n_features, n_classes, n_hidden=64):
+import torch.nn as nn
 
+def crear_torch(n_features, n_classes):
     return nn.Sequential(
-        nn.Linear(n_features, n_hidden),
-        nn.Sigmoid(),
-        nn.Linear(n_hidden, n_classes)
+        nn.Linear(n_features, 128),         
+        nn.ReLU(),
+        nn.Linear(128, 64),    # donde estan los numeros son las hidden layers como en MLP
+        nn.ReLU(),
+        nn.Linear(64, 32),
+        nn.ReLU(),
+        nn.Linear(32, n_classes)
     )
-
 
 
 classifier = {
@@ -247,30 +258,31 @@ def clasificador_unico_folds(X,y,clf,name_clf,val,name_val,groups):
         #//////////////////////////-------------------------------------------------------------------------------------
         if name_clf == "Pytorch":
         
-            Xtr = torch.tensor(X_train, dtype=torch.float32)
-            ytr = torch.tensor(y_train, dtype=torch.long)
-            Xte = torch.tensor(X_test,  dtype=torch.float32)
+            X_train_torch = torch.tensor(X_train, dtype=torch.float32)   # lista que tiene un conjunto de datos
+            y_train_torch = torch.tensor(y_train, dtype=torch.long)
+            X_test_torch = torch.tensor(X_test,  dtype=torch.float32)
 
-            n_features = Xtr.shape[1]   # coge las colummnas de caracteristicas
-            n_classes  = int(torch.unique(ytr).numel())
+            n_features = X_train_torch.shape[1]   # coge las colummnas de caracteristicas
+            n_classes  = int(torch.unique(y_train_torch).numel())
 
-            model = crear_torch(n_features, n_classes, n_hidden=64)
+            model = crear_torch(n_features, n_classes)
 
             criterion = torch.nn.CrossEntropyLoss(reduction="sum")
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)   #se usa ADAM como optimizador
 
                         
-            model.train()
+            model.train() 
+
             for epoch in range(50):
                 optimizer.zero_grad()
-                logits = model(Xtr)          # forward
-                loss = criterion(logits, ytr)
+                logits = model(X_train_torch)          # forward
+                loss = criterion(logits, y_train_torch)
                 loss.backward()              # backward
                 optimizer.step()             # update
             
             model.eval()
             with torch.no_grad():
-                logits_test = model(Xte)
+                logits_test = model(X_test_torch)
                 y_pred = logits_test.argmax(dim=1).cpu().numpy()
                 probs  = torch.softmax(logits_test, dim=1)[:, 1].cpu().numpy()
 
@@ -564,7 +576,6 @@ def estudio_demografico():
 
 
 
-
 # añadir funcion get_Data  --
 # cambiar Paths  --
 # cambiar nombre archivos salida metricas --
@@ -574,27 +585,13 @@ def estudio_demografico():
 if __name__ == "__main__":
    #estudio_demografico()
 
-    #clasificador_unico("comb","KNN")
-    #clasificador_unico("eda","AdaBoost")
-    #clasificador_unico("pow","SVC")
-    #clasificador_unico("eda","KNN")
-    #clasificador_unico("eda","KNN","kfold")
-    #clasificar_todos("eda","groupkfold")
-
-
-    #clasificar_todos("comb")
-    #clasificar_todos("eda")
-    #clasificar_todos("pow")
-
 
     #clasificar("eda","KNN")
     #clasificar("eda","SVC","groupkfold")
 
-    #clasificar("eda")
+    #clasificar("comb")
     #clasificar("pow")
-    clasificar("comb")
     clasificar("pow")
-    clasificar("eda")
 
 
 # %%
